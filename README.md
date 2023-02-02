@@ -7,31 +7,33 @@ ____
 Стек проекта:
 - python version 3.11.0
 
-## Параметры некоторых настроек
+## Основные функции
 ____
-Импорт датасета из таблицы гугл докс
-```python 
-wb =gc.open_by_url('ваша ссылка на таблицу google docx')
-ws = wb.worksheet('страница документа с которой будете работать')
+Основная функция имеет вид:
+```python
+def imoprt_table(url,sheet):
 ```
+Где 
+- url -> Ссылка на гугл таблицу
+- sheet -> Наименование листа на котором находятся ваши данные <br>
+В предидующей ячейке имеется переменная *first_row* задайте её при необходимости - первая строка с данными на листе таблицы
 
-Функция парсит сайт и выводит SMILE
-```python 
-def CIRconvert(ids):
-    try:
-        url = 'http://cactus.nci.nih.gov/chemical/structure/' + quote(ids) + '/smiles'
-        ans = urlopen(url).read().decode('utf8')
-        return ans
-    except:
-        return 'Did not work'
+---
+Дополнительная функция  
+```python
+def data_mine(file_name,type)
 ```
-
-Создание нового столбца с SMILE соединения
+Отбирает для дальнейшего анализа определенный класс молекул <br>
+Где
+- file_name -> словарь созданный циклом:
 ```python 
-ds['Smiles'] = ds['наименование столбца из которого извлекается SMILE'].apply(lambda x: CIRconvert(x))
+result = {}
+for i in tables:
+  result[i] = imoprt_table(tables[i],'RESULTS.CSV')
 ```
+- type -> тип молекулы для дальнейшего анализа, можно не записать, тогда анализироваться будут имеющиеся молекулы в независимости от их класса
 
-### Настройка заполенения словаря:
+### Настройка заполнения словаря:
 ```python 
 Classes_Org = {
                'c3' : 'Three_Aroma',
@@ -50,7 +52,31 @@ Classes_Org = {
                }
 ```
 Можно установить типы классификации молекул в рамках SMILE. <br>
-Порядок в словаре указывает на в заполнении списка классов конкретного соединения - подробнее в блоке ниже.
+Порядок в словаре указывает на в заполнении списка классов конкретного соединения.
+
+## Содержимое функции import_table
+____
+Импорт датасета из таблицы гугл докс
+```python 
+wb =gc.open_by_url(url)
+ws = wb.worksheet(sheet)
+```
+
+Функция парсит сайт и выводит SMILE молекулы
+```python 
+def CIRconvert(ids):
+    try:
+        url = 'http://cactus.nci.nih.gov/chemical/structure/' + quote(ids) + '/smiles'
+        ans = urlopen(url).read().decode('utf8')
+        return ans
+    except:
+        return 'unknown'
+```
+
+Создание нового столбца с SMILE соединения
+```python 
+ds['Smiles'] = ds['наименование столбца из которого извлекается SMILE'].apply(lambda x: CIRconvert(x))
+```
 
 Функция *type_of*, в данном конкретном случае, создаёт список классов к которым принадлежит молекула, после чего выбирает первую в списке - приоритетную.
 
@@ -64,7 +90,24 @@ def types_of(mol):
 ```
 Если нужен полный список, удалите *[0]* в *return result[0]*
 
-Создаём отдельный столбец с типом(типами) органических соединений в таблице используя функцию из прошлого блока:
+Функция *count_c* считывает количество С в SMILE...
 ```python 
-ds['тип соединения'] = ds['Smiles'].apply(lambda x : types_of(x))
+def count_c(c):
+    result = c.count('C') + c.count('c')
+    return result
+```
+... в последующем используется в создании нового столбца
+```python 
+ds['sum_c'] = ds['Smiles'].apply(lambda x : count_c(x))
+```
+
+Цикл записывает считывает значения из столбца *'type'* , создает и заполняет столбец с этим классом соединений:
+```python 
+for i in ds['type'].unique():
+    ds[i] = 0
+  for i in range(len(ds)):
+    obj = ds.iloc[i]
+    stry = obj['type']
+    obj[stry] = obj['Area Pct']
+    ds.iloc[i] = obj
 ```
